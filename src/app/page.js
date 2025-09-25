@@ -1,103 +1,238 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+import { useState, useEffect } from 'react';
+import { mathQuestions, categories } from './data';
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+export default function MathQuiz() {
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [currentQuestion, setCurrentQuestion] = useState(null);
+  const [questions, setQuestions] = useState([]);
+  const [score, setScore] = useState(0);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [showResults, setShowResults] = useState(false);
+  const [selectedAnswer, setSelectedAnswer] = useState(null);
+  const [isCorrect, setIsCorrect] = useState(null);
+  const [showNextPrompt, setShowNextPrompt] = useState(false);
+  const [shuffledAnswers, setShuffledAnswers] = useState([]);
+
+  // Shuffle answers only when question changes
+  useEffect(() => {
+    if (currentQuestion) {
+      const allAnswers = [...currentQuestion.wrongAnswers, currentQuestion.correctAnswer];
+      setShuffledAnswers(allAnswers.sort(() => Math.random() - 0.5));
+    }
+  }, [currentQuestion]);
+
+  // Initialize categories from localStorage or select all
+  useEffect(() => {
+    const savedCategories = localStorage.getItem('mathQuizCategories');
+    if (savedCategories) {
+      setSelectedCategories(JSON.parse(savedCategories));
+    } else {
+      const allCategories = categories.map(cat => cat.id);
+      setSelectedCategories(allCategories);
+    }
+  }, []);
+
+  // Save categories to localStorage when they change
+  useEffect(() => {
+    if (selectedCategories.length > 0) {
+      localStorage.setItem('mathQuizCategories', JSON.stringify(selectedCategories));
+    }
+  }, [selectedCategories]);
+
+  // Filter questions based on selected categories
+  useEffect(() => {
+    const filtered = mathQuestions.filter(q => selectedCategories.includes(q.category));
+    setQuestions(filtered);
+  }, [selectedCategories]);
+
+  const startQuiz = () => {
+    if (questions.length === 0) return;
+
+    const shuffled = [...questions].sort(() => Math.random() - 0.5);
+    setQuestions(shuffled);
+    setCurrentQuestion(shuffled[0]);
+    setScore(0);
+    setQuestionCount(0);
+    setShowResults(false);
+    setSelectedAnswer(null);
+    setIsCorrect(null);
+    setShowNextPrompt(false);
+  };
+
+  const handleAnswerSelect = (answer) => {
+    if (selectedAnswer !== null) return;
+
+    setSelectedAnswer(answer);
+    const correct = answer === currentQuestion.correctAnswer;
+    setIsCorrect(correct);
+
+    if (correct) {
+      setScore(score + 1);
+    }
+
+    // Show the "click anywhere" prompt instead of automatically proceeding
+    setShowNextPrompt(true);
+  };
+
+  const handleNextQuestion = () => {
+    const nextIndex = questionCount + 1;
+    if (nextIndex < questions.length) {
+      setCurrentQuestion(questions[nextIndex]);
+      setQuestionCount(nextIndex);
+      setSelectedAnswer(null);
+      setIsCorrect(null);
+      setShowNextPrompt(false);
+    } else {
+      setShowResults(true);
+    }
+  };
+
+  const toggleCategory = (categoryId) => {
+    setSelectedCategories(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(id => id !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
+
+  if (showResults) {
+    return (
+      <div
+        className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 cursor-pointer"
+        onClick={startQuiz}
+      >
+        <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8 text-center">
+          <h1 className="text-4xl font-bold text-gray-800 mb-6">Quiz Complete!</h1>
+          <div className="text-6xl font-bold text-green-600 mb-4">{score}/{questions.length}</div>
+          <div className="text-2xl text-gray-600 mb-8">
+            {score === questions.length ? "Perfect score! 🎉" :
+              score >= questions.length * 0.7 ? "Great job! 👍" :
+                "Keep practicing! 💪"}
+          </div>
+          <div className="text-lg text-blue-600 font-semibold animate-pulse">
+            Click anywhere to start a new quiz
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+    );
+  }
+
+  if (!currentQuestion) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-4xl font-bold text-center text-gray-800 mb-8">Math Quiz</h1>
+
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+            <h2 className="text-2xl font-semibold text-gray-700 mb-6">Select Categories</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {categories.map(category => (
+                <label key={category.id} className="flex items-center p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedCategories.includes(category.id)}
+                    onChange={() => toggleCategory(category.id)}
+                    className="h-5 w-5 text-blue-600 rounded"
+                  />
+                  <div className="ml-3">
+                    <div className="font-medium text-gray-900">{category.name}</div>
+                    <div className="text-sm text-gray-500">{category.description}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <button
+            onClick={startQuiz}
+            disabled={selectedCategories.length === 0}
+            className="w-full bg-blue-600 text-white py-4 rounded-lg font-semibold text-lg disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+          >
+            Start Quiz ({questions.length} questions)
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+
+
+  return (
+    <div
+      className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 cursor-pointer"
+      onClick={showNextPrompt ? handleNextQuestion : undefined}
+    >
+      <div className="max-w-2xl mx-auto">
+        {/* Progress Bar */}
+        <div className="bg-white rounded-full shadow mb-8">
+          <div
+            className="bg-green-500 h-3 rounded-full transition-all duration-300"
+            style={{ width: `${((questionCount) / questions.length) * 100}%` }}
+          ></div>
+        </div>
+
+        {/* Question Card */}
+        <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-sm font-medium text-blue-600 bg-blue-100 px-3 py-1 rounded-full">
+              Question {questionCount + 1} of {questions.length}
+            </span>
+            <span className="text-sm font-medium text-gray-600">
+              Score: {score}
+            </span>
+          </div>
+
+          <h2 className="text-2xl font-semibold text-gray-800 mb-8 leading-relaxed">
+            {currentQuestion.question}
+          </h2>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {shuffledAnswers.map((answer, index) => {
+              let buttonClass = "bg-gray-100 hover:bg-gray-200 text-gray-800";
+
+              if (selectedAnswer !== null) {
+                if (answer === selectedAnswer) {
+                  buttonClass = isCorrect
+                    ? "bg-green-500 text-white"
+                    : "bg-red-500 text-white";
+                } else if (answer === currentQuestion.correctAnswer) {
+                  buttonClass = "bg-green-500 text-white";
+                } else {
+                  buttonClass = "bg-gray-300 text-gray-600 cursor-not-allowed";
+                }
+              }
+
+              return (
+                <button
+                  key={index}
+                  onClick={() => handleAnswerSelect(answer)}
+                  disabled={selectedAnswer !== null}
+                  className={`p-4 rounded-lg font-medium text-lg transition-all duration-200 ${buttonClass} disabled:cursor-not-allowed`}
+                >
+                  {answer}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {isCorrect !== null && (
+          <div className={`text-center p-4 rounded-lg mb-4 ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}>
+            {isCorrect ? '✅ Correct!' : '❌ Incorrect!'}
+            {showNextPrompt && (
+              <div className="mt-2 text-lg font-semibold animate-pulse">
+                Click anywhere to continue...
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Click anywhere overlay for better UX */}
+        {showNextPrompt}
+      </div>
     </div>
   );
 }
