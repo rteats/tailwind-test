@@ -172,7 +172,7 @@ export default function MathQuiz() {
 
   return (
     <div
-      className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 cursor-pointer"
+      className="inter-font min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 cursor-pointer"
       onClick={showNextPrompt ? handleNextQuestion : undefined}
     >
       <div className="max-w-2xl mx-auto">
