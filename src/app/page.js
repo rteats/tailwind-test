@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { mathQuestions, categories } from './data';
 
 export default function MathQuiz() {
@@ -14,6 +14,28 @@ export default function MathQuiz() {
   const [isCorrect, setIsCorrect] = useState(null);
   const [showNextPrompt, setShowNextPrompt] = useState(false);
   const [shuffledAnswers, setShuffledAnswers] = useState([]);
+  const [needsFloatingButton, setNeedsFloatingButton] = useState(false);
+  const containerRef = useRef(null);
+  const contentRef = useRef(null);
+
+  // Check if we need floating button
+  useEffect(() => {
+    const checkLayout = () => {
+      if (containerRef.current && contentRef.current) {
+        const containerHeight = containerRef.current.clientHeight;
+        const contentHeight = contentRef.current.scrollHeight;
+        const viewportHeight = window.innerHeight;
+
+        // Need floating button if content is taller than viewport
+        setNeedsFloatingButton(contentHeight > viewportHeight);
+      }
+    };
+
+    checkLayout();
+    window.addEventListener('resize', checkLayout);
+
+    return () => window.removeEventListener('resize', checkLayout);
+  }, [currentQuestion, showResults, selectedCategories, questions, showNextPrompt]);
 
   // Shuffle answers only when question changes
   useEffect(() => {
@@ -72,7 +94,6 @@ export default function MathQuiz() {
       setScore(score + 1);
     }
 
-    // Show the "click anywhere" prompt instead of automatically proceeding
     setShowNextPrompt(true);
   };
 
@@ -99,7 +120,7 @@ export default function MathQuiz() {
 
   if (showResults) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+      <div className="font-sans min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
         <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8 text-center">
           <h1 className="text-4xl font-bold text-gray-800 mb-6">Quiz Complete!</h1>
           <div className="text-6xl font-bold text-green-600 mb-4">{score}/{questions.length}</div>
@@ -132,9 +153,15 @@ export default function MathQuiz() {
 
   if (!currentQuestion) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-5xl font-bold p-8  text-gray-800">Math Quiz</h1>
+      <div
+        ref={containerRef}
+        className="font-sans min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col"
+      >
+        <div
+          ref={contentRef}
+          className="max-w-2xl mx-auto w-full flex-grow p-8"
+        >
+          <h1 className="text-5xl font-bold text-gray-800 mb-8">Math Quiz</h1>
 
           <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
             <h2 className="text-2xl font-semibold text-gray-700 mb-6">Select Categories</h2>
@@ -155,11 +182,14 @@ export default function MathQuiz() {
               ))}
             </div>
           </div>
+        </div>
 
+        {/* Start Quiz Button */}
+        <div className={`max-w-2xl mx-auto w-full p-8 ${needsFloatingButton ? 'fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-gradient-to-t from-blue-50 to-transparent pt-16 pb-8' : 'flex-grow-0'}`}>
           <button
             onClick={startQuiz}
             disabled={selectedCategories.length === 0}
-            className="w-full bg-blue-600 text-white py-4 rounded-lg font-semibold text-lg disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+            className={`w-full bg-blue-600 text-white py-4 rounded-lg font-semibold text-lg disabled:bg-gray-400 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors ${needsFloatingButton ? 'shadow-2xl' : ''}`}
           >
             Start Quiz ({questions.length} questions)
           </button>
@@ -168,14 +198,16 @@ export default function MathQuiz() {
     );
   }
 
-
-
   return (
     <div
-      className="inter-font min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8 cursor-pointer"
+      ref={containerRef}
+      className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex flex-col"
       onClick={showNextPrompt ? handleNextQuestion : undefined}
     >
-      <div className="max-w-2xl mx-auto">
+      <div
+        ref={contentRef}
+        className="max-w-2xl mx-auto w-full flex-grow p-8"
+      >
         {/* Progress Bar */}
         <div className="bg-white rounded-full shadow mb-8">
           <div
@@ -229,21 +261,24 @@ export default function MathQuiz() {
           </div>
         </div>
 
-        {isCorrect !== null && (
-          <div className={`text-center p-4 rounded-lg mb-4 ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-            }`}>
+        {isCorrect !== null && !showNextPrompt && (
+          <div className={`text-center p-4 rounded-lg mb-4 ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
             {isCorrect ? '✅ Correct!' : '❌ Incorrect!'}
-            {showNextPrompt && (
-              <div className="mt-2 text-lg font-semibold animate-pulse">
-                Click anywhere to continue...
-              </div>
-            )}
           </div>
         )}
-
-        {/* Click anywhere overlay for better UX */}
-        {showNextPrompt}
       </div>
+
+      {/* Next Question Prompt */}
+      {showNextPrompt && (
+        <div className={`max-w-2xl mx-auto w-full ${needsFloatingButton ? 'fixed bottom-0 left-1/2 transform -translate-x-1/2 bg-gradient-to-t from-blue-50 to-transparent pt-16 pb-8 px-8' : 'p-8 flex-grow-0'}`}>
+          <div className={`text-center p-4 rounded-lg ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} ${needsFloatingButton ? 'shadow-2xl' : ''}`}>
+            {isCorrect ? '✅ Correct!' : '❌ Incorrect!'}
+            <div className="mt-2 text-lg font-semibold animate-pulse">
+              {needsFloatingButton ? 'Click anywhere to continue...' : 'Click anywhere or press any key to continue...'}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
